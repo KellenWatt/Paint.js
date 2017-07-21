@@ -3,7 +3,7 @@
         "target": "es5",
         "module": "amd",
         "rootDir": "",
-	"outFile": "build/Paint.js"
+	    "outDir": "build"
     },
 
     "compileOnSave": true,

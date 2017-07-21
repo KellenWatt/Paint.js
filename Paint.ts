@@ -33,9 +33,6 @@ export default class Paint {
 
     points: Point[];
 
-    // offset: Point;
-    // scalingFactor: number;
-
     tools: {};
 
     readOnly: boolean;
@@ -211,35 +208,25 @@ export default class Paint {
         return this.mouseMoved;
     }
 
-    undo(index?: number, version?: number) {
-        version = typeof version === "undefined" ? 0 : version;
-        if(typeof index === "undefined") {
-            this.currentLayer.history.quickUndo();
-        } else {
-            this.currentLayer.history.undo(index, version);
-        }
+    undo(index?: number) {
+        this.currentLayer.history.undo(index);
         let img = new Image();
         img.addEventListener("load", () => {
             this.currentLayer.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
             this.currentLayer.context.drawImage(img, 0, 0);
             // do save/restore if slow.
         });
-        img.src = this.currentLayer.history.getImageData(version);
+        img.src = this.currentLayer.history.getCurrentState().miscData;
     }
 
-    redo(index?: number, version?: number) {
-        version = typeof version === "undefined" ? 0 : version;
-        if(typeof index === "undefined") {
-            this.currentLayer.history.quickRedo();
-        } else {
-            this.currentLayer.history.redo(index, version);
-        }
+    redo(index?: number) {
+        this.currentLayer.history.redo(index);
         let img = new Image();
         img.addEventListener("load", () => {
             this.currentLayer.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
             this.currentLayer.context.drawImage(img, 0, 0);
         });
-        img.src = this.currentLayer.history.getImageData(version);
+        img.src = this.currentLayer.history.getCurrentState().miscData;
     }
 
     reconstruct(json: string) : void {
@@ -272,7 +259,7 @@ export default class Paint {
                 layer.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 layer.context.drawImage(img, 0, 0);
             });
-            img.src = layer.history.getImageData(layer.history.version);
+            img.src = layer.history.getCurrentState().miscData;
         }
     }
 

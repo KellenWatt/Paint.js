@@ -1,137 +1,90 @@
 import {Point} from "./definitions"
 
-export class HistoryNode {
-    constructor(public tool: ToolName | null,
-                public color: string | null,
-                public fill: boolean | null,
-                public weight: number | null,
-                public x: number | null,
-                public y: number | null,
-                public dx: number | null,
-                public dy: number | null,
-                public imageData: string,
-                public points: Point[]) {}
-}
+export class HistoryNode implements IHistoryNode{
+    public tool: string;
+    public color: string;
+    public fill: boolean;
+    public weight: number;
+    public x: number;
+    public y: number;
+    public dx: number;
+    public dy: number;
+    public miscData: string;
+    public points: Point[];
 
-export class HistoryLayer {
-    versions: HistoryNode[];
-    selectedVersion: number;
-
-    constructor() {
-        this.versions = [];
-        this.selectedVersion = 0;
-    }
-
-    addAction(node: HistoryNode) : void {
-        this.versions.push(node);
-        if(this.versions.length > 2) {
-            this.versions.shift();
+    constructor(node?: Object) {
+        if(typeof node === "undefined") return;
+        for(let item in node) {
+            this[item] = node[item];
         }
-        this.selectedVersion = this.versions.length - 1;
-    }
-
-    currentVersion(version: number) : HistoryNode {
-        return this.versions[version];
-    }
-
-    branchCount() : number {
-        return this.versions.length;
     }
 }
 
-export default class PaintHistory {
-    states: HistoryLayer[];
-    currentLayer: number;
-    version: number;
+export default class PaintHistory implements IPaintHistory{
+    states: HistoryNode[];
+    currentStateIndex: number;
     inPrevState: boolean;
 
     constructor(image: string) {
         this.states = [];
-        this.currentLayer = 0;
-        this.version = 0;
+        this.currentStateIndex = 0;
         this.inPrevState = false;
-        this.states.push(new HistoryLayer());
-        this.states[0].addAction(new HistoryNode(null, null, null, null, null, null, null, null, image, []));
+        this.states.push(new HistoryNode());
     }
 
-    pushAction(tool: ToolName, color: string, fill: boolean,
-               weight: number, x: number, dx: number,
-               y: number, dy: number, image: string,
-               points: Point[]) : void {
-        if(!this.inPrevState) {
-            this.states.push(new HistoryLayer());
+    push(node: Object) {
+        if(this.inPrevState) {
+            this.states.length = this.currentStateIndex + 1;
         }
-        this.currentLayer += 1;
-        if(this.currentLayer == this.states.length-1) {
-            this.inPrevState = false;
-        }
-
-        this.states[this.currentLayer].addAction(
-            new HistoryNode(tool, color, fill, weight, x, y, dx, dy, image, points));
+        this.states.push(new HistoryNode(node));
+        this.currentStateIndex += 1;
+        this.inPrevState = (this.currentStateIndex != this.states.length-1);
     }
 
-    undo(index: number, version: number) : void {
-        if(this.currentLayer != 0) {
+
+
+    undo(index?: number) : void {
+        if(this.currentStateIndex != 0) {
             this.inPrevState = true;
-            this.currentLayer= index;
-            this.version = version;
+            if(typeof index === "undefined") {
+                this.currentStateIndex -= 1;
+            } else {
+                this.currentStateIndex = index;
+            }
         }
     }
 
-    quickUndo() : void {
-        if(this.currentLayer != 0) {
-            this.inPrevState = true;
-            this.currentLayer -= 1;
-            this.version = this.states[this.currentLayer].selectedVersion;
-        }
-    }
-
-    redo(index: number, version: number) : void{
-        if(this.currentLayer != this.states.length - 1) {
-            this.currentLayer = index;
-            this.version = version;
+    redo(index?: number) : void{
+        if(this.currentStateIndex != this.states.length - 1) {
+            if(typeof index === "undefined") {
+                this.currentStateIndex += 1;
+            } else {
+                this.currentStateIndex = index;
+            }
             if(index == this.states.length - 1) {
                 this.inPrevState = false;
             }
         }
     }
 
-    quickRedo() : void {
-        if(this.currentLayer != this.states.length - 1) {
-            this.currentLayer += 1;
-            this.version = this.states[this.currentLayer].selectedVersion;
-            if(this.currentLayer == this.states.length - 1) {
-                this.inPrevState = false;
-            }
-        }
-    }
-
-    fullHistory() : HistoryLayer[] {
+    getHistory() : HistoryNode[] {
         return this.states;
     }
 
-    getCurrentState() : HistoryLayer {
-        return this.states[this.currentLayer];
+    getCurrentState() : HistoryNode {
+        return this.states[this.currentStateIndex];
     }
 
-    getImageData(version: number) : string {
-        return this.states[this.currentLayer].currentVersion(version).imageData;
+    getImageData() : string {
+        return this.states[this.currentStateIndex].miscData;
     }
 
     static loadObject(obj: any) : PaintHistory {
-        let image = obj.states[0].versions[0].imageData;
+        let image = obj.states[0].miscData;
         let hist = new PaintHistory(image);
-        obj.states.shift()
-        for(let layer of obj.states) {
-            let n = layer.versions[0];
-            hist.pushAction(n.tool, n.color, n.fill, n.weight, n.x, n.y,
-                            n.dx, n.dy, n.imageData, n.points);
-            if(layer.versions.length > 1) {
-                let m = layer.versions[1];
-                hist.states[hist.currentLayer].addAction(
-                    new HistoryNode(m.tool, m.color, m.fill, m.weight, m.x, m.y,
-                                    m.dx, m.dy, m.imageData, m.points));
-            }
+        obj.states.shift();
+        for(let node of obj.states) {
+            hist.push(new HistoryNode(node));
         }
 
         return hist;
